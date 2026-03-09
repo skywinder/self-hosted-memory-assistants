@@ -1,0 +1,9 @@
+[submodule "mycelia"]
+	path = mycelia
+	url = https://github.com/mycelia-tech/mycelia
+[submodule "ushadow"]
+	path = ushadow
+	url = https://github.com/Ushadow-io/Ushadow.git
+[submodule "chronicle"]
+	path = chronicle
+	url = https://github.com/chronicler-ai/chronicle
