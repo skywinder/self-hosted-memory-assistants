@@ -18,7 +18,7 @@ If you also want to start the configured services:
 To preview what would happen without changing files:
 
 ```bash
-./setup.sh --dry-run
+./setup.sh --dry-run --non-interactive
 ```
 
 To configure only part of the workspace:
@@ -27,13 +27,36 @@ To configure only part of the workspace:
 ./setup.sh --projects mycelia,ushadow
 ```
 
+To only inspect what is already configured:
+
+```bash
+./setup.sh --status-only
+```
+
 ## What `./setup.sh` Does
 
 - Uses one shared config file: `.setup.env`
+- Shows per-project status before writing anything: `configured`, `partial`, or `not_setup`
+- Prompts for missing shared setup values when running interactively
 - Creates missing runtime config for `mycelia`, `chronicle`, and `ushadow`
+- If runtime files already exist, asks whether to keep existing values or override generated files
 - Generates local secrets where the projects expect them
 - Preserves existing generated secrets if they already exist
 - Optionally starts the configured projects
+
+## Existing Files Policy
+
+By default, interactive runs ask per project whether existing generated files should be kept or replaced.
+
+- `keep` means: preserve real existing values and only fill missing / placeholder fields
+- `override` means: rebuild generated runtime files from template and shared config
+
+For automation:
+
+```bash
+./setup.sh --non-interactive --keep-existing
+./setup.sh --non-interactive --overwrite-existing
+```
 
 ## Where Databases Live
 
@@ -74,4 +97,3 @@ To configure only part of the workspace:
 - The unified setup writes `ushadow/.env`
 - It also creates or updates `ushadow/config/SECRETS/secrets.yaml`
 - `ushadow` keeps API keys in `secrets.yaml`, while ports and compose settings live in `.env`
-

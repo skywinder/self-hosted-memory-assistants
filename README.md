@@ -168,8 +168,14 @@ Optional:
 ```bash
 ./setup.sh --start
 ./setup.sh --dry-run
+./setup.sh --status-only
 ./setup.sh --projects mycelia,ushadow
 ```
+
+The setup flow now:
+- shows which projects are already configured, partially configured, or not set up
+- asks whether to keep existing runtime files or override them
+- can run non-interactively with `--non-interactive`, `--keep-existing`, or `--overwrite-existing`
 
 See [UNIFIED_SETUP.md](UNIFIED_SETUP.md) for where databases live and where each project stores runtime secrets.
 
