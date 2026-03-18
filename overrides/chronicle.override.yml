@@ -4,7 +4,7 @@
 
 services:
   chronicle-backend:
-    ports:
+    ports: !override
       - "9000:8000"
     environment:
       - CORS_ORIGINS=http://localhost:9010,http://localhost:9000
@@ -23,28 +23,28 @@ services:
       - memory-net
 
   webui:
-    ports:
+    ports: !override
       - "9010:80"
     networks:
       - default
       - memory-net
 
   caddy:
-    ports:
+    ports: !override
       - "9443:443"
       - "9080:80"
       - "9343:3443"
 
   mongo:
-    ports:
+    ports: !override
       - "27018:27017"
 
   redis:
-    ports:
+    ports: !override
       - "6380:6379"
 
   neo4j:
-    ports:
+    ports: !override
       - "7475:7474"
       - "7688:7687"
 

@@ -4,12 +4,12 @@
 
 services:
   mem0_store:
-    ports:
+    ports: !override
       - "9335:6333"    # remapped from 6335 to avoid conflict with ushadow qdrant
 
   openmemory-mcp:
     container_name: mem0    # ushadow proxy discovers by exact container name "mem0"
-    ports:
+    ports: !override
       - "9765:8765"
     networks:
       - default
@@ -17,7 +17,7 @@ services:
       - memory-net
 
   openmemory-ui:
-    ports:
+    ports: !override
       - "9001:3000"
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:9765

@@ -74,9 +74,13 @@ case "${1:-up}" in
     docker compose -f "$SCRIPT_DIR/chronicle/extras/openmemory-mcp/docker-compose.yml" \
       -f "$SCRIPT_DIR/overrides/chronicle-openmemory.override.yml" up -d
 
+    echo "Building chronicle images..."
+    docker compose -f "$SCRIPT_DIR/chronicle/backends/advanced/docker-compose.yml" \
+      -f "$SCRIPT_DIR/overrides/chronicle.override.yml" build chronicle-backend webui
+
     echo "Starting chronicle..."
     docker compose -f "$SCRIPT_DIR/chronicle/backends/advanced/docker-compose.yml" \
-      -f "$SCRIPT_DIR/overrides/chronicle.override.yml" up --build -d
+      -f "$SCRIPT_DIR/overrides/chronicle.override.yml" up -d
 
     echo "Starting mycelia..."
     docker compose -f "$SCRIPT_DIR/mycelia/docker-compose.yml" \
