@@ -4,7 +4,7 @@
 
 services:
   mongo:
-    ports:
+    ports: !override
       - "27020:27017"
     networks:
       - ushadow-network
@@ -12,7 +12,7 @@ services:
       - memory-net
 
   redis:
-    ports:
+    ports: !override
       - "6382:6379"
     networks:
       - ushadow-network
@@ -20,7 +20,7 @@ services:
       - memory-net
 
   qdrant:
-    ports:
+    ports: !override
       - "6335:6333"
       - "6336:6334"
     networks:
@@ -29,13 +29,18 @@ services:
       - memory-net
 
   neo4j:
-    ports:
+    ports: !override
       - "7476:7474"
       - "7689:7687"
     networks:
       - ushadow-network
       - infra-network
       - memory-net
+
+  keycloak:
+    ports: !override
+      - "8081:8080"
+      - "8082:9000"      # management port, remapped from 9000 to avoid chronicle conflict
 
 networks:
   memory-net:

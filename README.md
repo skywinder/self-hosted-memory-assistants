@@ -152,6 +152,73 @@ self-hosted-memory-assistants/
 └── README.md
 ```
 
+## Pre-Setup (Before First Run)
+
+Each project needs a `.env` file with secrets and API keys. These are gitignored and must be created once.
+
+### Required `.env` Files
+
+| File | Purpose | How to Create |
+|------|---------|---------------|
+| `chronicle/backends/advanced/.env` | API keys, auth secrets | Copy from `.env.template`, fill in keys |
+| `chronicle/extras/openmemory-mcp/.env` | OpenAI key for embeddings | Copy from `.env.template`, add `OPENAI_API_KEY` |
+| `ushadow/.env` | Ports, DB names, Keycloak config | Run `./go.sh` or copy from `.env.example` |
+| `ushadow/config/SECRETS/secrets.yaml` | JWT keys, session secrets | Run `ushadow/scripts/generate-secrets.sh` |
+| `mycelia/.env` | MongoDB creds, secret key | Run `mycelia/scripts/setup.sh` or copy from `.env.example` |
+
+### Quick Setup
+
+```bash
+# 1. Clone with submodules
+git clone --recurse-submodules <url>
+cd self-hosted-memory-assistants
+
+# 2. Chronicle: create .env from template
+cp chronicle/backends/advanced/.env.template chronicle/backends/advanced/.env
+# Edit: add OPENAI_API_KEY, DEEPGRAM_API_KEY, AUTH_SECRET_KEY, ADMIN_PASSWORD, ADMIN_EMAIL
+
+# 3. OpenMemory: create .env from template
+cp chronicle/extras/openmemory-mcp/.env.template chronicle/extras/openmemory-mcp/.env
+# Edit: add OPENAI_API_KEY
+
+# 4. Ushadow: generate secrets
+cd ushadow && bash scripts/generate-secrets.sh && cd ..
+# If ushadow/.env doesn't exist: cp ushadow/.env.example ushadow/.env
+
+# 5. Mycelia: create .env
+cd mycelia && bash scripts/setup.sh && cd ..
+
+# 6. Start everything
+./start-all.sh up
+```
+
+### Where State is Stored
+
+All persistent data lives in Docker volumes and bind mounts. Override files only change **ports and networks**, never data paths — so data is the same whether you run standalone or combined.
+
+| Project | Data Type | Location | Persistence |
+|---------|-----------|----------|-------------|
+| **Chronicle** | Conversations, users | Docker volume `advanced_mongo-data` | Survives `down`, removed with `down -v` |
+| **Chronicle** | Audio files | `chronicle/backends/advanced/data/` | Bind mount on disk |
+| **Chronicle** | Vector memories | Docker volume `advanced_qdrant-data` | Survives `down` |
+| **Chronicle** | Redis queues | Docker volume `advanced_redis-data` | Survives `down` |
+| **OpenMemory** | Shared memories | `chronicle/extras/openmemory-mcp/data/mem0_storage/` | Bind mount on disk |
+| **Ushadow** | Users, sessions | Docker volume `infra-mongo-data` | Survives `down` |
+| **Ushadow** | Vector data | Docker volume `infra-qdrant-data` | Survives `down` |
+| **Mycelia** | Notes, memories | Docker volume `mycelia_mongo-data` | Survives `down` |
+| **Mycelia** | SSL certs | `mycelia/misc/nginx/ssl/` | Auto-generated on first run |
+
+**To reset a project completely:** `docker compose down -v` in its directory removes all Docker volumes.
+
+### Standalone vs Combined: Compatibility
+
+The script automatically stops standalone containers before starting combined mode. You cannot run both simultaneously — they share Docker networks and would cause DNS conflicts.
+
+`./start-all.sh up` will:
+1. Stop any standalone containers (`ushadow-second-*`, `mycelia-*`, `advanced-*`)
+2. Stop previous combined-mode containers
+3. Start everything fresh with override configs
+
 ## Getting Started
 
 ### Unified setup from the meta-repo

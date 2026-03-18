@@ -1,14 +1,28 @@
 # Override for chronicle/extras/openmemory-mcp/docker-compose.yml
-# Remaps openmemory ports to 9xxx range
+# Remaps ports, adds memory-net for cross-module access, sets discoverable container name
 # Usage: docker compose -f chronicle/extras/openmemory-mcp/docker-compose.yml -f overrides/chronicle-openmemory.override.yml up -d
 
 services:
+  mem0_store:
+    ports: !override
+      - "9335:6333"    # remapped from 6335 to avoid conflict with ushadow qdrant
+
   openmemory-mcp:
-    ports:
+    container_name: mem0    # ushadow proxy discovers by exact container name "mem0"
+    ports: !override
       - "9765:8765"
+    networks:
+      - default
+      - chronicle-network
+      - memory-net
 
   openmemory-ui:
-    ports:
+    ports: !override
       - "9001:3000"
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:9765
+
+networks:
+  memory-net:
+    name: memory-net
+    external: true
