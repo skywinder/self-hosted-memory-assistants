@@ -154,6 +154,25 @@ self-hosted-memory-assistants/
 
 ## Getting Started
 
+### Unified setup from the meta-repo
+
+If you want one entry point for all projects:
+
+```bash
+cp .setup.env.example .setup.env
+./setup.sh
+```
+
+Optional:
+
+```bash
+./setup.sh --start
+./setup.sh --dry-run
+./setup.sh --projects mycelia,ushadow
+```
+
+See [UNIFIED_SETUP.md](UNIFIED_SETUP.md) for where databases live and where each project stores runtime secrets.
+
 ### Clone with submodules
 
 ```bash
