@@ -1,0 +1,8 @@
+# Override for chronicle/extras/langfuse/docker-compose.yml
+# Remaps langfuse web port to 9xxx range
+# Usage: docker compose -f chronicle/extras/langfuse/docker-compose.yml -f overrides/chronicle-langfuse.override.yml up -d
+
+services:
+  langfuse-web:
+    ports:
+      - "9002:3000"

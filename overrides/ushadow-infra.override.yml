@@ -1,0 +1,43 @@
+# Override for ushadow/compose/docker-compose.infra.yml
+# Remaps infrastructure ports to 80xx range and adds shared memory-net network
+# Usage: docker compose -f ushadow/compose/docker-compose.infra.yml -f overrides/ushadow-infra.override.yml --profile infra up -d
+
+services:
+  mongo:
+    ports:
+      - "27020:27017"
+    networks:
+      - ushadow-network
+      - infra-network
+      - memory-net
+
+  redis:
+    ports:
+      - "6382:6379"
+    networks:
+      - ushadow-network
+      - infra-network
+      - memory-net
+
+  qdrant:
+    ports:
+      - "6335:6333"
+      - "6336:6334"
+    networks:
+      - ushadow-network
+      - infra-network
+      - memory-net
+
+  neo4j:
+    ports:
+      - "7476:7474"
+      - "7689:7687"
+    networks:
+      - ushadow-network
+      - infra-network
+      - memory-net
+
+networks:
+  memory-net:
+    name: memory-net
+    external: true

@@ -25,6 +25,99 @@ AI orchestration platform and unified dashboard. Acts as the central hub that in
 - **Stack:** FastAPI (Python), React frontend, MongoDB, Redis, Qdrant, Keycloak
 - **Features:** Multi-service orchestration, Chronicle integration proxy, interactive CLI (`ush`), setup wizard, multi-environment isolation via git worktrees, Kubernetes-ready
 
+## Running the Projects
+
+### Standalone Mode
+
+Each project works independently with its own Docker Compose setup and default ports:
+
+```bash
+cd mycelia && docker compose up -d           # ports 3210, 4433, 27017
+cd chronicle/backends/advanced && docker compose up -d  # ports 8000, 3010, 27017, 6379
+cd ushadow && docker compose up -d           # ports 8000, 27017, 6379
+```
+
+### Combined Mode
+
+To run all three projects simultaneously, the parent repo provides override files that remap conflicting ports and create a shared Docker network for cross-module communication. No submodule files are modified.
+
+```bash
+./start-all.sh up      # start all services
+./start-all.sh down    # stop all services
+./start-all.sh status  # show running containers
+```
+
+Access points in combined mode:
+
+| Service | URL |
+|---------|-----|
+| Mycelia | http://localhost:3210 |
+| Ushadow backend | http://localhost:8010 |
+| Chronicle backend | http://localhost:9000 |
+| Chronicle UI | http://localhost:9010 |
+
+### How Combined Mode Works
+
+Each module gets a unique port range so nothing conflicts:
+
+| Module | Port range | Mongo | Redis | Qdrant | Neo4j | Backend/UI |
+|--------|-----------|-------|-------|--------|-------|------------|
+| Chronicle | 90xx | 27018 | 6380 | 6033/6034 | 7475/7688 | 9000/9010 |
+| Mycelia | 32xx | 27019 | — | — | — | 3210 |
+| Ushadow | 80xx | 27020 | 6382 | 6335/6336 | 7476/7689 | 8010 |
+
+Each module keeps its own database instances — nothing is shared. The full port map is in [.env.ports](.env.ports).
+
+**Override files** in the [overrides/](overrides/) directory use Docker Compose's `-f` merge feature to remap ports and add networks without touching submodule files:
+
+```
+overrides/
+├── chronicle.override.yml           # main chronicle services
+├── chronicle-speaker.override.yml   # speaker recognition extra
+├── chronicle-openmemory.override.yml # openmemory MCP extra
+├── chronicle-langfuse.override.yml  # langfuse extra
+├── mycelia.override.yml             # main mycelia services
+├── mycelia-gpu.override.yml         # mycelia GPU services
+├── ushadow-infra.override.yml       # ushadow infrastructure (mongo, redis, etc.)
+└── ushadow-app.override.yml         # ushadow backend
+```
+
+**Shared network**: All modules join an external Docker network called `memory-net`, enabling containers to reach services in other modules by container name. Internal service names stay module-scoped (chronicle's `mongo` is separate from ushadow's `mongo`).
+
+To use an override manually (e.g., just chronicle + mycelia):
+
+```bash
+docker network create memory-net 2>/dev/null || true
+
+docker compose -f chronicle/backends/advanced/docker-compose.yml \
+  -f overrides/chronicle.override.yml up -d
+
+docker compose -f mycelia/docker-compose.yml \
+  -f overrides/mycelia.override.yml up -d
+```
+
+### Repository Structure
+
+```
+self-hosted-memory-assistants/
+├── mycelia/              → mycelia-tech/mycelia
+├── ushadow/              → Ushadow-io/Ushadow
+├── chronicle/            → chronicler-ai/chronicle
+├── scripts/              → repo maintenance helpers
+├── overrides/            → Docker Compose override files for combined mode
+│   ├── chronicle.override.yml
+│   ├── chronicle-speaker.override.yml
+│   ├── chronicle-openmemory.override.yml
+│   ├── chronicle-langfuse.override.yml
+│   ├── mycelia.override.yml
+│   ├── mycelia-gpu.override.yml
+│   ├── ushadow-infra.override.yml
+│   └── ushadow-app.override.yml
+├── .env.ports            → Port assignment reference
+├── start-all.sh          → Orchestration script
+└── README.md
+```
+
 ## Getting Started
 
 ### Clone with submodules
@@ -40,19 +133,7 @@ If you already cloned without `--recurse-submodules`:
 git submodule update --init --recursive
 ```
 
-### Repository structure
-
-```
-self-hosted-memory-assistants/
-├── mycelia/          → mycelia-tech/mycelia
-├── ushadow/          → Ushadow-io/Ushadow
-├── chronicle/        → chronicler-ai/chronicle
-└── README.md
-```
-
-Each subfolder is a full git repository. You work inside them as normal.
-
-## Working with Submodules
+## Working with Child Repositories
 
 ### Day-to-day development
 
@@ -68,48 +149,70 @@ git commit -m "your change"
 git push
 ```
 
+### Updating everything to the latest fast-forward state
+
+Use the repo script instead of a blind recursive submodule update:
+
+```bash
+./scripts/update-subrepos.sh
+```
+
+What it does:
+
+- Initializes declared top-level child repos if they are missing
+- Updates `chronicle`, `mycelia`, and `ushadow` with `git pull --ff-only`
+- Initializes and updates the child repos declared inside `ushadow`
+- Skips child repos that already have local changes instead of trying to pull through them
+- Verifies that each target path is a real repo root before pulling, so an empty gitlink directory does not accidentally resolve to the parent repo
+- Warns about gitlinks that exist in `ushadow` but are not declared in `ushadow/.gitmodules` and therefore cannot be initialized safely by recursive submodule commands
+
+Preview what it would touch:
+
+```bash
+./scripts/update-subrepos.sh --dry-run
+```
+
+Only update the top-level repos tracked by this meta-repo:
+
+```bash
+./scripts/update-subrepos.sh --root-only
+```
+
 ### Recording which versions go together
 
-After updating a submodule, go back to the meta-repo and commit the new pointer:
+After updating child repos, review the changed gitlinks and commit the new pointers in the parent repo that owns them:
 
 ```bash
-cd ..  # back to self-hosted-memory-assistants/
-git add mycelia
-git commit -m "bump mycelia to latest"
+git status
+git -C ushadow status
+```
+
+Typical follow-up:
+
+```bash
+git -C ushadow add chronicle mycelia openmemory vibe-kanban
+git -C ushadow commit -m "bump nested child repos"
+
+git add chronicle mycelia ushadow
+git commit -m "bump child repos"
 git push
 ```
 
-This records that "mycelia is now at commit X" in the meta-repo.
+If `git -C ushadow status` is clean, you only need the top-level `git add ...` and commit.
 
-### Updating all submodules to latest
+### Detached HEADs and nested repos
 
-```bash
-git submodule update --remote
-git add .
-git commit -m "bump all submodules to latest"
-git push
-```
+Fresh submodule checkouts often start detached. The updater script will attach a detached child repo to `origin/HEAD` before pulling, which is `dev` for the current top-level projects.
 
-### Pulling updates (including submodules)
+`ushadow` also carries nested gitlinks. Not all of them are declared cleanly in `ushadow/.gitmodules`, so `git submodule update --remote --recursive` is not a reliable maintenance workflow here.
 
-```bash
-git pull
-git submodule update --init --recursive
-```
+### Switching branches inside a child repo
 
-Or in one command:
-
-```bash
-git pull --recurse-submodules
-```
-
-### Switching branches inside a submodule
-
-Submodules check out in "detached HEAD" by default. To work on a branch:
+To work on a specific branch by hand:
 
 ```bash
 cd chronicle
-git checkout main
+git checkout dev
 ```
 
 ### Quick reference
@@ -118,10 +221,15 @@ git checkout main
 |------|---------|
 | Clone everything | `git clone --recurse-submodules <url>` |
 | Init submodules after clone | `git submodule update --init --recursive` |
-| Pull all latest | `git submodule update --remote` |
+| Preview repo updates | `./scripts/update-subrepos.sh --dry-run` |
+| Pull all latest safely | `./scripts/update-subrepos.sh` |
+| Pull top-level only | `./scripts/update-subrepos.sh --root-only` |
 | See submodule status | `git submodule status` |
 | Work on a project | `cd <project> && git checkout <branch>` |
 | Record version bump | `git add <project> && git commit` |
+| Start all (combined mode) | `./start-all.sh up` |
+| Stop all | `./start-all.sh down` |
+| Check running containers | `./start-all.sh status` |
 
 ## License
 

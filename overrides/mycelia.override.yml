@@ -1,0 +1,33 @@
+# Override for mycelia/docker-compose.yml
+# Remaps mongo port and adds shared memory-net network
+# Usage: docker compose -f mycelia/docker-compose.yml -f overrides/mycelia.override.yml up -d
+
+services:
+  mongo:
+    ports:
+      - "27019:27017"
+
+  nginx:
+    networks:
+      - default
+      - memory-net
+
+  backend:
+    networks:
+      - default
+      - memory-net
+
+  frontend:
+    networks:
+      - default
+      - memory-net
+
+  python-worker:
+    networks:
+      - default
+      - memory-net
+
+networks:
+  memory-net:
+    name: memory-net
+    external: true

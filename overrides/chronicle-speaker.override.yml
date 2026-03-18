@@ -1,0 +1,17 @@
+# Override for chronicle/extras/speaker-recognition/docker-compose.yml
+# Remaps speaker service ports to 90xx range
+# Usage: docker compose -f chronicle/extras/speaker-recognition/docker-compose.yml -f overrides/chronicle-speaker.override.yml --profile cpu up -d
+
+services:
+  speaker-service:
+    ports:
+      - "9085:${SPEAKER_SERVICE_PORT:-8085}"
+
+  speaker-service-gpu:
+    ports:
+      - "9085:${SPEAKER_SERVICE_PORT:-8085}"
+
+  caddy:
+    ports:
+      - "9444:443"
+      - "9081:80"

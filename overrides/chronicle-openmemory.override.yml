@@ -1,0 +1,14 @@
+# Override for chronicle/extras/openmemory-mcp/docker-compose.yml
+# Remaps openmemory ports to 9xxx range
+# Usage: docker compose -f chronicle/extras/openmemory-mcp/docker-compose.yml -f overrides/chronicle-openmemory.override.yml up -d
+
+services:
+  openmemory-mcp:
+    ports:
+      - "9765:8765"
+
+  openmemory-ui:
+    ports:
+      - "9001:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:9765

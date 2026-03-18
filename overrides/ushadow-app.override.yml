@@ -1,0 +1,16 @@
+# Override for ushadow/compose/backend.yml
+# Remaps backend port and adds shared memory-net network
+# Usage: docker compose -f ushadow/docker-compose.yml -f overrides/ushadow-app.override.yml up -d
+
+services:
+  backend:
+    ports:
+      - "8010:8000"
+    networks:
+      - ushadow-network
+      - memory-net
+
+networks:
+  memory-net:
+    name: memory-net
+    external: true

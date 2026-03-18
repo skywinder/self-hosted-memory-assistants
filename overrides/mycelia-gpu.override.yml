@@ -1,0 +1,12 @@
+# Override for mycelia/gpu/docker-compose.yml
+# Remaps GPU service ports to 32xx range to avoid conflicts
+# Usage: docker compose -f mycelia/gpu/docker-compose.yml -f overrides/mycelia-gpu.override.yml up -d
+
+services:
+  diarization:
+    ports:
+      - "3285:8085"
+
+  proxy:
+    ports:
+      - "3280:8000"
