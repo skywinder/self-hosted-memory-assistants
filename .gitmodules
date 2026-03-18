@@ -7,3 +7,6 @@
 [submodule "chronicle"]
 	path = chronicle
 	url = https://github.com/chronicler-ai/chronicle
+[submodule "exocortex"]
+	path = exocortex
+	url = https://github.com/amaslak0v/exocortex

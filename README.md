@@ -1,6 +1,6 @@
 # Self-Hosted Memory Assistants
 
-A meta-repository that ties together three self-hosted AI memory projects via git submodules. Each project captures, processes, and retrieves personal data — audio, conversations, memories — and they can be orchestrated together through ushadow.
+A meta-repository that ties together four self-hosted AI memory projects via git submodules. Each project captures, processes, and retrieves personal data, memories, or knowledge artifacts, and they can be run side by side through ushadow's batch tooling.
 
 ## Projects
 
@@ -18,6 +18,13 @@ AI-powered personal memory system for wearable devices. Captures continuous audi
 - **Stack:** FastAPI (Python), React dashboard, React Native mobile app, MongoDB, Qdrant
 - **Features:** Real-time audio capture (Wyoming protocol), Deepgram/Parakeet transcription, memory extraction, semantic vector search, speaker recognition, job tracking pipeline
 
+### [Exocortex](https://github.com/amaslak0v/exocortex)
+
+Personal knowledge OS built around an Obsidian vault, Claude Code skills, and a lightweight control panel.
+
+- **Stack:** Markdown/Obsidian vault, Claude Code skills and agents, Node/Express control panel
+- **Features:** Domain-specific skills, autonomous sync agents, MCP bridge configs, and a local dashboard over the vault
+
 ### [ushadow](https://github.com/Ushadow-io/Ushadow)
 
 AI orchestration platform and unified dashboard. Acts as the central hub that integrates Chronicle, MCP services, Agent Zero, n8n workflows, and other services under one roof.
@@ -29,19 +36,21 @@ AI orchestration platform and unified dashboard. Acts as the central hub that in
 
 ### Standalone Mode
 
-Each project works independently with its own Docker Compose setup and default ports:
+Each project works independently with its own default startup path and ports:
 
 ```bash
 cd mycelia && docker compose up -d           # ports 3210, 4433, 27017
 cd chronicle/backends/advanced && docker compose up -d  # ports 8000, 3010, 27017, 6379
+cd exocortex/control-panel && npm ci && npm start       # port 3333
 cd ushadow && docker compose up -d           # ports 8000, 27017, 6379
 ```
 
 ### Combined Mode
 
-To run all three projects simultaneously, the parent repo provides override files that remap conflicting ports and create a shared Docker network for cross-module communication. No submodule files are modified.
+To run the batch together, the parent repo provides override files that remap conflicting Docker services, a shared Docker network for cross-module communication, and a helper that runs Exocortex's control panel as a host process. No submodule files are modified.
 
 ```bash
+npm ci --prefix exocortex/control-panel       # one-time for Exocortex
 ./start-all.sh up      # start all services
 ./start-all.sh down    # stop all services
 ./start-all.sh status  # show running containers
@@ -52,9 +61,12 @@ Access points in combined mode:
 | Service | URL |
 |---------|-----|
 | Mycelia | http://localhost:3210 |
+| Exocortex | http://localhost:3333 |
 | Ushadow backend | http://localhost:8010 |
 | Chronicle backend | http://localhost:9000 |
 | Chronicle UI | http://localhost:9010 |
+| OpenMemory UI | http://localhost:9001 |
+| OpenMemory API | http://localhost:9765 |
 
 ### How Combined Mode Works
 
@@ -62,11 +74,32 @@ Each module gets a unique port range so nothing conflicts:
 
 | Module | Port range | Mongo | Redis | Qdrant | Neo4j | Backend/UI |
 |--------|-----------|-------|-------|--------|-------|------------|
-| Chronicle | 90xx | 27018 | 6380 | 6033/6034 | 7475/7688 | 9000/9010 |
 | Mycelia | 32xx | 27019 | — | — | — | 3210 |
+| Exocortex | 33xx | — | — | — | — | 3333 |
 | Ushadow | 80xx | 27020 | 6382 | 6335/6336 | 7476/7689 | 8010 |
+| Chronicle | 90xx | 27018 | 6380 | 6033/6034 | 7475/7688 | 9000/9010 |
 
-Each module keeps its own database instances — nothing is shared. The full port map is in [.env.ports](.env.ports).
+Each Docker-backed module keeps its own database instances. Exocortex does not ship a Docker Compose stack in this repo, so it runs directly on the host and does not join `memory-net`. The full port map is in [.env.ports](.env.ports).
+
+### Data Sharing via OpenMemory
+
+In combined mode, [OpenMemory MCP](https://github.com/mem0ai/mem0) runs as a shared memory store that all modules can access over the `memory-net` network:
+
+```
+Chronicle ──writes memories──→ OpenMemory MCP (Qdrant) ←──queries── Ushadow
+                                      ↑
+                               memory-net network
+                                      ↑
+Mycelia ──queryable via REST API──────┘
+```
+
+- **Chronicle** automatically writes extracted memories to OpenMemory (configured via `MEMORY_PROVIDER=openmemory_mcp` in the override)
+- **Ushadow** aggregates memories from OpenMemory, Chronicle, and Mycelia through its proxy
+- **Mycelia** stays read-only for now — its memories are queryable via its API but it doesn't push to OpenMemory
+- **Exocortex** currently stays independent from the OpenMemory flow; it coexists cleanly in the batch but is not yet wired into the shared memory graph
+- **OpenMemory UI** at http://localhost:9001 provides a unified browse/search interface
+
+OpenMemory requires an `OPENAI_API_KEY` in `chronicle/extras/openmemory-mcp/.env` for memory extraction and embeddings.
 
 **Override files** in the [overrides/](overrides/) directory use Docker Compose's `-f` merge feature to remap ports and add networks without touching submodule files:
 
@@ -82,7 +115,7 @@ overrides/
 └── ushadow-app.override.yml         # ushadow backend
 ```
 
-**Shared network**: All modules join an external Docker network called `memory-net`, enabling containers to reach services in other modules by container name. Internal service names stay module-scoped (chronicle's `mongo` is separate from ushadow's `mongo`).
+**Shared network**: The Dockerized modules join an external Docker network called `memory-net`, enabling containers to reach services in other modules by container name. Internal service names stay module-scoped (chronicle's `mongo` is separate from ushadow's `mongo`).
 
 To use an override manually (e.g., just chronicle + mycelia):
 
@@ -101,6 +134,7 @@ docker compose -f mycelia/docker-compose.yml \
 ```
 self-hosted-memory-assistants/
 ├── mycelia/              → mycelia-tech/mycelia
+├── exocortex/            → amaslak0v/exocortex
 ├── ushadow/              → Ushadow-io/Ushadow
 ├── chronicle/            → chronicler-ai/chronicle
 ├── scripts/              → repo maintenance helpers
@@ -160,7 +194,7 @@ Use the repo script instead of a blind recursive submodule update:
 What it does:
 
 - Initializes declared top-level child repos if they are missing
-- Updates `chronicle`, `mycelia`, and `ushadow` with `git pull --ff-only`
+- Updates `chronicle`, `exocortex`, `mycelia`, and `ushadow` with `git pull --ff-only`
 - Initializes and updates the child repos declared inside `ushadow`
 - Skips child repos that already have local changes instead of trying to pull through them
 - Verifies that each target path is a real repo root before pulling, so an empty gitlink directory does not accidentally resolve to the parent repo
@@ -193,7 +227,7 @@ Typical follow-up:
 git -C ushadow add chronicle mycelia openmemory vibe-kanban
 git -C ushadow commit -m "bump nested child repos"
 
-git add chronicle mycelia ushadow
+git add chronicle exocortex mycelia ushadow
 git commit -m "bump child repos"
 git push
 ```
@@ -202,7 +236,7 @@ If `git -C ushadow status` is clean, you only need the top-level `git add ...` a
 
 ### Detached HEADs and nested repos
 
-Fresh submodule checkouts often start detached. The updater script will attach a detached child repo to `origin/HEAD` before pulling, which is `dev` for the current top-level projects.
+Fresh submodule checkouts often start detached. The updater script will attach a detached child repo to each repo's `origin/HEAD` before pulling.
 
 `ushadow` also carries nested gitlinks. Not all of them are declared cleanly in `ushadow/.gitmodules`, so `git submodule update --remote --recursive` is not a reliable maintenance workflow here.
 
@@ -227,6 +261,7 @@ git checkout dev
 | See submodule status | `git submodule status` |
 | Work on a project | `cd <project> && git checkout <branch>` |
 | Record version bump | `git add <project> && git commit` |
+| Install Exocortex deps | `npm ci --prefix exocortex/control-panel` |
 | Start all (combined mode) | `./start-all.sh up` |
 | Stop all | `./start-all.sh down` |
 | Check running containers | `./start-all.sh status` |
