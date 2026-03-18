@@ -1,5 +1,5 @@
 # Override for chronicle/backends/advanced/docker-compose.yml
-# Remaps ports to 90xx range and adds shared memory-net network
+# Remaps ports to 90xx range, adds shared memory-net network, configures OpenMemory MCP as memory provider
 # Usage: docker compose -f chronicle/backends/advanced/docker-compose.yml -f overrides/chronicle.override.yml up -d
 
 services:
@@ -8,6 +8,11 @@ services:
       - "9000:8000"
     environment:
       - CORS_ORIGINS=http://localhost:9010,http://localhost:9000
+      - MEMORY_PROVIDER=openmemory_mcp
+      - OPENMEMORY_MCP_URL=http://openmemory-mcp:8765
+      - OPENMEMORY_CLIENT_NAME=chronicle
+      - OPENMEMORY_USER_ID=openmemory
+      - OPENMEMORY_TIMEOUT=30
     networks:
       - default
       - memory-net
